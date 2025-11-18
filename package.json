@@ -1,0 +1,48 @@
+{
+    "name": "@kalel1500/datetimerange-picker",
+    "version": "0.1.0-beta.0",
+    "description": "A JavaScript component that is a date & time range picker",
+    "type": "module",
+    "main": "dist/datetimerange-picker.es.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/datetimerange-picker.es.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./dist/*.css": "./dist/*.css"
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc && vite build"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kalel1500/datetimerange-picker.git"
+    },
+    "keywords": [
+        "datetime",
+        "range",
+        "datetimerange",
+        "datetimerangepicker",
+        "datetimerange-picker",
+        "picker"
+    ],
+    "author": "kalel1500",
+    "license": "GPL-3.0-or-later",
+    "bugs": {
+        "url": "https://github.com/kalel1500/datetimerange-picker/issues"
+    },
+    "homepage": "https://github.com/kalel1500/datetimerange-picker#readme",
+    "devDependencies": {
+        "typescript": "^5.7.3",
+        "vite": "^6.1.0",
+        "vite-plugin-dts": "^4.5.4"
+    },
+    "dependencies": {
+        "@types/luxon": "^3.4.2",
+        "@types/node": "20.11.1"
+    }
+}
