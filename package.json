@@ -43,6 +43,7 @@
     },
     "dependencies": {
         "@types/luxon": "^3.4.2",
-        "@types/node": "20.11.1"
+        "@types/node": "20.11.1",
+        "luxon": "^3.7.2"
     }
 }
