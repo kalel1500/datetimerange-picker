@@ -1,19 +1,14 @@
-// src/DateRangePicker.ts
-
 import { DateTime, Duration, Settings, Info } from 'luxon';
 import { Utilities } from './Utilities';
 import { CalendarRenderer } from './CalendarRenderer';
 import { TimePickerRenderer } from './TimePickerRenderer';
 import { Options, Locale, CalendarData, RangeDates, Callback } from './types';
 
-// Establecer locale por defecto (Luxon es flexible, pero esto ayuda con Info.months/weekdays)
-Settings.defaultLocale = 'es';
-
 /**
  * Clase principal del DateRangePicker, refactorizada a TypeScript y Luxon.
  */
 export class DateRangePicker {
-    // [PROPIEDADES]
+    // [PROPIEDADES - Estado y Configuración]
     private element: HTMLElement;
     private container: HTMLElement;
     private parentEl: HTMLElement;
@@ -36,8 +31,8 @@ export class DateRangePicker {
     private alwaysShowCalendars: boolean = false;
     private showCustomRangeLabel: boolean = true;
     private showDropdowns: boolean = false;
-    private minYear: number = DateTime.local().minus({ years: 100 }).year;
-    private maxYear: number = DateTime.local().plus({ years: 100 }).year;
+    private minYear: number;
+    private maxYear: number;
     private startDate: DateTime;
     private endDate: DateTime;
     private minDate: DateTime | false = false;
@@ -54,6 +49,8 @@ export class DateRangePicker {
     private timePickerRenderer: TimePickerRenderer;
     private isInvalidDate: (date: DateTime) => boolean = () => false;
     private isCustomDate: (date: DateTime) => string | string[] | false = () => false;
+
+    // [PROXIES DE EVENTOS]
     private _outsideClickProxy: EventListener | null = null;
     private moveProxy: EventListener | null = null;
     private clickRangeProxy: EventListener | null = null;
@@ -76,6 +73,11 @@ export class DateRangePicker {
         this.parentEl = document.body;
         this.callback = cb;
 
+        // Inicializar años por defecto
+        this.minYear = DateTime.local().minus({ years: 100 }).year;
+        this.maxYear = DateTime.local().plus({ years: 100 }).year;
+
+        // Inicializar fechas
         this.startDate = DateTime.local().startOf('day');
         this.endDate = DateTime.local().endOf('day');
         this.oldStartDate = this.startDate.setZone('local');
@@ -86,18 +88,21 @@ export class DateRangePicker {
         this.rightCalendar = { month: this.startDate.set({ day: 2 }).plus({ months: 1 }), calendar: [] };
 
         // 2. Configuración Regional por Defecto (español)
-        const currentLocaleInfo = Info.setLocale('es');
+        // Usamos 'es' como locale para obtener los nombres correctos.
+        Settings.defaultLocale = 'es';
+
         this.locale = {
             direction: 'ltr',
-            format: 'dd/MM/yyyy', // Formato estándar de Luxon para fecha en español
+            format: 'dd/MM/yyyy',
             separator: ' - ',
             applyLabel: 'Aplicar',
             cancelLabel: 'Cancelar',
             weekLabel: 'S',
             customRangeLabel: 'Rango Personalizado',
-            daysOfWeek: currentLocaleInfo.weekdays('short', { locale: 'es' }),
-            monthNames: currentLocaleInfo.months('short', { locale: 'es' }),
-            firstDay: 1 // Lunes (1) por defecto, en lugar del domingo (0) del original.
+            // Info.weekdays() devuelve la lista completa. La rotación se hace más abajo.
+            daysOfWeek: Info.weekdays('short'),
+            monthNames: Info.months('short'),
+            firstDay: 1 // Lunes (1)
         };
         // Rotar daysOfWeek según firstDay
         let iterator = this.locale.firstDay;
@@ -114,7 +119,19 @@ export class DateRangePicker {
         this.container = this.createContainer(this.options.template);
 
         // 5. Inicializar Renderizadores (pasan el estado actual)
-        this.calendarRenderer = new CalendarRenderer(this.container, this.locale, this.showDropdowns, this.options.showWeekNumbers || false, this.options.showISOWeekNumbers || false, this.minYear, this.maxYear, this.isInvalidDate, this.isCustomDate, this.linkedCalendars, this.singleDatePicker);
+        this.calendarRenderer = new CalendarRenderer(
+            this.container,
+            this.locale,
+            this.showDropdowns,
+            this.options.showWeekNumbers || false,
+            this.options.showISOWeekNumbers || false,
+            this.minYear,
+            this.maxYear,
+            this.isInvalidDate,
+            this.isCustomDate,
+            this.linkedCalendars,
+            this.singleDatePicker
+        );
         this.timePickerRenderer = new TimePickerRenderer(this.container, this.timePickerSeconds, this.timePickerIncrement, this.timePicker24Hour, this.locale);
 
         // 6. Configurar Eventos
@@ -122,9 +139,12 @@ export class DateRangePicker {
 
         // 7. Actualizar el elemento de entrada
         this.updateElement();
-
         this.updateMonthsInView();
     }
+
+    // ====================================================================
+    // LÓGICA COMPLETA DE MÉTODOS PRIVADOS
+    // ====================================================================
 
     private applyOptions(options: Options): void {
         if (this.element.classList.contains('pull-right')) this.opens = 'left';
@@ -134,9 +154,9 @@ export class DateRangePicker {
 
         if (typeof options.locale === 'object') {
             this.locale = { ...this.locale, ...options.locale as Locale };
-            // Recalcular rotación de días de la semana si se cambia 'firstDay'
             if (options.locale.firstDay !== undefined) {
-                this.locale.daysOfWeek = Info.weekdays('short', { locale: Settings.defaultLocale });
+                // Reiniciar y rotar daysOfWeek
+                this.locale.daysOfWeek = Info.weekdays('short');
                 let iterator = this.locale.firstDay;
                 while (iterator > 0) {
                     this.locale.daysOfWeek.push(this.locale.daysOfWeek.shift()!);
@@ -187,7 +207,7 @@ export class DateRangePicker {
         } else if (this.timePickerIncrement) {
             const roundMinutes = (dt: DateTime) => {
                 const remainder = dt.minute % this.timePickerIncrement;
-                return remainder !== 0 ? dt.minus({ minutes: remainder }) : dt; // Truncate minutes
+                return remainder !== 0 ? dt.minus({ minutes: remainder }) : dt;
             };
             this.startDate = roundMinutes(this.startDate);
             this.endDate = roundMinutes(this.endDate);
@@ -255,12 +275,14 @@ export class DateRangePicker {
             Utilities.on(this.element, 'focus', this.showProxy);
             this.elementChangedProxy = this.elementChanged.bind(this);
             Utilities.on(this.element, 'keyup', this.elementChangedProxy);
-            this.keydownProxy = this.keydown.bind(this);
+            // Uso de EventListener para compatibilidad con el tipo 'addEventListener'
+            this.keydownProxy = this.keydown.bind(this) as EventListener;
             Utilities.on(this.element, 'keydown', this.keydownProxy);
         } else {
             this.toggleProxy = this.toggle.bind(this);
             Utilities.on(this.element, 'click', this.toggleProxy);
-            Utilities.on(this.element, 'keydown', this.toggleProxy);
+            this.keydownProxy = this.keydown.bind(this) as EventListener;
+            Utilities.on(this.element, 'keydown', this.keydownProxy);
         }
 
         this.clickPrevProxy = this.clickPrev.bind(this);
@@ -274,16 +296,18 @@ export class DateRangePicker {
     // [MÉTODOS PÚBLICOS]
     public setStartDate(startDate: DateTime | string): void {
         const newStartDate = typeof startDate === 'string' ? DateTime.fromFormat(startDate, this.locale.format) : startDate.setZone('local');
-        // (Lógica de validación y truncamiento de tiempo omitida por brevedad, está en el constructor)
         this.startDate = newStartDate;
+        if (!this.timePicker) this.startDate = this.startDate.startOf('day');
+        // ... (Validaciones de minDate y timePickerIncrement)
         if (!this.isShowing) this.updateElement();
         this.updateMonthsInView();
     }
 
     public setEndDate(endDate: DateTime | string): void {
         const newEndDate = typeof endDate === 'string' ? DateTime.fromFormat(endDate, this.locale.format) : endDate.setZone('local');
-        // (Lógica de validación y truncamiento de tiempo omitida por brevedad, está en el constructor)
         this.endDate = newEndDate;
+        if (!this.timePicker) this.endDate = this.endDate.endOf('day');
+        // ... (Validaciones de maxDate y timePickerIncrement)
         this.updateSelectedDisplay();
         if (!this.isShowing) this.updateElement();
         this.updateMonthsInView();
@@ -335,7 +359,8 @@ export class DateRangePicker {
         this.isShowing ? this.hide() : this.show();
     }
 
-    // [MÉTODOS PRIVADOS]
+    // [MÉTODOS PRIVADOS DE LÓGICA]
+
     private updateView(): void {
         if (this.timePicker) {
             this.renderTimePickers();
@@ -348,21 +373,26 @@ export class DateRangePicker {
 
     private updateSelectedDisplay(): void {
         if (this.endDate) {
-            const formattedStart = this.startDate.toFormat(this.locale.format);
-            const formattedEnd = this.endDate.toFormat(this.locale.format);
+            const formattedStart = this.startDate.toFormat(this.locale.format + (this.timePicker ? ' ' + (this.timePicker24Hour ? 'HH:mm' : 'h:mm a') + (this.timePickerSeconds ? ':ss' : '') : ''));
+            const formattedEnd = this.endDate.toFormat(this.locale.format + (this.timePicker ? ' ' + (this.timePicker24Hour ? 'HH:mm' : 'h:mm a') + (this.timePickerSeconds ? ':ss' : '') : ''));
             Utilities.html(this.container.querySelector('.drp-selected'), formattedStart + this.locale.separator + formattedEnd);
         }
     }
 
     private updateMonthsInView(): void {
         if (this.endDate) {
+            // El mes de inicio siempre es el de la fecha de inicio
             this.leftCalendar.month = this.startDate.set({ day: 2 });
+
+            // Si no están vinculados o los meses son diferentes, el derecho es la fecha de fin
             if (!this.linkedCalendars && (this.endDate.month !== this.startDate.month || this.endDate.year !== this.startDate.year)) {
                 this.rightCalendar.month = this.endDate.set({ day: 2 });
             } else {
+                // Si están vinculados o es el mismo mes, el derecho es un mes después del izquierdo
                 this.rightCalendar.month = this.startDate.set({ day: 2 }).plus({ months: 1 });
             }
         }
+        // Ajustar si el calendario derecho excede maxDate o si es el mismo mes y singleDatePicker es falso
         if (this.maxDate && this.linkedCalendars && !this.singleDatePicker && this.rightCalendar.month > this.maxDate) {
             this.rightCalendar.month = this.maxDate.set({ day: 2 });
             this.leftCalendar.month = this.maxDate.set({ day: 2 }).minus({ months: 1 });
@@ -371,7 +401,14 @@ export class DateRangePicker {
 
     private updateCalendars(): void {
         const drpCalendarElList = this.container.querySelectorAll('.drp-calendar');
-        // Limpiar eventos (omitiendo por brevedad)
+        // Limpiar eventos anteriores del calendario
+        Utilities.off(drpCalendarElList, 'click', '.prev', this.clickPrevProxy!);
+        Utilities.off(drpCalendarElList, 'click', '.next', this.clickNextProxy!);
+        Utilities.off(drpCalendarElList, 'click', 'td.available', this.clickDateProxy!);
+        Utilities.off(drpCalendarElList, 'mouseover', 'td.available', this.hoverDateProxy!);
+        Utilities.off(drpCalendarElList, 'change', '.monthselect', this.monthOrYearChangedProxy!);
+        Utilities.off(drpCalendarElList, 'change', '.yearselect', this.monthOrYearChangedProxy!);
+        Utilities.off(drpCalendarElList, 'change', '.hourselect, .minuteselect, .secondselect, .ampmselect', this.timeChangedProxy!);
 
         this.calendarRenderer.buildCalendar(this.leftCalendar);
         this.calendarRenderer.buildCalendar(this.rightCalendar);
@@ -381,14 +418,23 @@ export class DateRangePicker {
 
         this.calculateChosenLabel();
 
-        // Re-configurar eventos (omitiendo por brevedad)
+        // Re-configurar eventos para los nuevos elementos del calendario
+        Utilities.on(drpCalendarElList, 'click', '.prev', this.clickPrevProxy!);
+        Utilities.on(drpCalendarElList, 'click', '.next', this.clickNextProxy!);
+        Utilities.on(drpCalendarElList, 'click', 'td.available', this.clickDateProxy!);
+        Utilities.on(drpCalendarElList, 'mouseover', 'td.available', this.hoverDateProxy!);
+        Utilities.on(drpCalendarElList, 'change', '.monthselect', this.monthOrYearChangedProxy!);
+        Utilities.on(drpCalendarElList, 'change', '.yearselect', this.monthOrYearChangedProxy!);
+        Utilities.on(drpCalendarElList, 'change', '.hourselect, .minuteselect, .secondselect, .ampmselect', this.timeChangedProxy!);
     }
 
     private renderTimePickers(): void {
         this.timePickerRenderer.render('left', this.startDate, this.startDate, this.minDate, this.maxDate, this.maxSpan);
         if (this.endDate) {
+            // El minDate para el selector de hora derecho es la fecha de inicio
             this.timePickerRenderer.render('right', this.endDate, this.startDate, this.startDate, this.maxDate, this.maxSpan);
         } else {
+            // Si no hay fecha de fin, el selector derecho usa el mes de referencia pero está deshabilitado
             this.timePickerRenderer.render('right', this.rightCalendar.month, this.startDate, this.startDate, this.maxDate, this.maxSpan);
             const selectElList = this.container.querySelectorAll('.right .calendar-time select');
             selectElList.forEach(el => {
@@ -399,10 +445,39 @@ export class DateRangePicker {
     }
 
     private move(): void {
-        // Lógica de posicionamiento (usando Utilities.offset y cálculos de Luxon)
+        const parentEl = this.parentEl;
         const elementOffset = Utilities.offset(this.element);
-        let parentOffset = { top: 0, left: 0 };
-        // ... (cálculos de move)
+        const container = this.container;
+        const parentOffset = Utilities.offset(parentEl);
+        const containerWidth = container.offsetWidth;
+        const containerHeight = container.offsetHeight;
+
+        let containerTop = elementOffset.top;
+        let containerLeft = elementOffset.left;
+
+        // Posicionamiento vertical (drops)
+        if (this.drops === 'up') {
+            containerTop = elementOffset.top - containerHeight;
+        } else if (this.drops === 'auto') {
+            const viewportH = window.innerHeight;
+            const scrollT = window.scrollY;
+            if (elementOffset.top + this.element.offsetHeight + containerHeight > viewportH + scrollT) {
+                containerTop = elementOffset.top - containerHeight;
+                this.container.classList.add('dropup');
+            }
+        }
+
+        // Posicionamiento horizontal (opens)
+        if (this.opens === 'left') {
+            containerLeft = elementOffset.left - containerWidth + this.element.offsetWidth;
+        } else if (this.opens === 'center') {
+            containerLeft = elementOffset.left + (this.element.offsetWidth / 2) - (containerWidth / 2);
+        }
+
+        // Aplicar posiciones finales
+        container.style.top = (containerTop - parentOffset.top) + 'px';
+        container.style.left = (containerLeft - parentOffset.left) + 'px';
+        container.style.right = 'auto'; // Limpiar derecho por si acaso
     }
 
     private outsideClick(e: Event): void {
@@ -421,6 +496,7 @@ export class DateRangePicker {
         const target = e.target as HTMLElement;
         const label = target.dataset.rangeKey!;
         this.chosenLabel = label;
+
         if (label === this.locale.customRangeLabel) {
             this.container.classList.add('show-calendar');
         } else {
@@ -460,13 +536,7 @@ export class DateRangePicker {
         const target = e.target as HTMLElement;
         if (!target.classList.contains('available') || this.endDate) return;
 
-        const title = target.dataset.title!;
-        const row = parseInt(title.substr(1, 1));
-        const col = parseInt(title.substr(3, 1));
-        const cal = target.closest('.drp-calendar')!;
-        const date = cal.classList.contains('left') ? this.leftCalendar.calendar[row][col] : this.rightCalendar.calendar[row][col];
-
-        this.container.querySelectorAll('.drp-calendar tbody td').forEach(td => {
+        this.container.querySelectorAll<HTMLElement>('.drp-calendar tbody td').forEach(td => {
             if (td.classList.contains('week')) return;
 
             const title = td.dataset.title!;
@@ -475,6 +545,10 @@ export class DateRangePicker {
             const d = td.closest('.drp-calendar')!.classList.contains('left')
                 ? this.leftCalendar.calendar[r][c]
                 : this.rightCalendar.calendar[r][c];
+
+            const date = target.closest('.drp-calendar')!.classList.contains('left')
+                ? this.leftCalendar.calendar[parseInt(target.dataset.title!.substr(1, 1))][parseInt(target.dataset.title!.substr(3, 1))]
+                : this.rightCalendar.calendar[parseInt(target.dataset.title!.substr(1, 1))][parseInt(target.dataset.title!.substr(3, 1))];
 
             if ((d > this.startDate.endOf('day') && d < date.startOf('day')) || d.hasSame(date, 'day')) {
                 td.classList.add('in-range');
@@ -496,8 +570,18 @@ export class DateRangePicker {
         let date = isLeft ? this.leftCalendar.calendar[row][col] : this.rightCalendar.calendar[row][col];
 
         if (this.timePicker) {
-            // (Lógica de obtención de hora y minuto omitida por brevedad)
-            // Aplica la hora a 'date'
+            const timeSelectors = cal.querySelector('.calendar-time')!;
+            const hour = parseInt((timeSelectors.querySelector('.hourselect') as HTMLSelectElement).value, 10);
+            const minute = parseInt((timeSelectors.querySelector('.minuteselect') as HTMLSelectElement).value, 10);
+            const second = this.timePickerSeconds ? parseInt((timeSelectors.querySelector('.secondselect') as HTMLSelectElement).value, 10) : 0;
+            const ampm = this.timePicker24Hour ? '' : (timeSelectors.querySelector('.ampmselect') as HTMLSelectElement).value;
+
+            let h = hour;
+            if (!this.timePicker24Hour) {
+                if (ampm === 'AM' && hour === 12) h = 0;
+                if (ampm === 'PM' && hour !== 12) h = hour + 12;
+            }
+            date = date.set({ hour: h, minute, second });
         }
 
         if (this.endDate || date < this.startDate.startOf('day')) {
@@ -521,42 +605,115 @@ export class DateRangePicker {
     }
 
     private calculateChosenLabel(): void {
-        // (Lógica de comparación de rango usando Luxon.hasSame y toFormat omitida por brevedad)
+        let customRangeFound = false;
+        let chosenLabel = null;
+
+        for (const rangeLabel in this.ranges) {
+            if (rangeLabel === this.locale.customRangeLabel) continue;
+
+            const range = this.ranges[rangeLabel];
+            if (this.startDate.hasSame(range[0], 'day') && this.endDate.hasSame(range[1], 'day')) {
+                customRangeFound = true;
+                chosenLabel = rangeLabel;
+                break;
+            }
+        }
+
+        if (!customRangeFound && this.showCustomRangeLabel) {
+            chosenLabel = this.locale.customRangeLabel;
+        }
+
+        this.chosenLabel = chosenLabel;
     }
 
     private clickApply(e: Event): void {
         this.hide();
-        e.target!.dispatchEvent(new CustomEvent('apply.daterangepicker', { bubbles: true, detail: this }));
+        this.element.dispatchEvent(new CustomEvent('apply.daterangepicker', { bubbles: true, detail: this }));
     }
 
     private clickCancel(e: Event): void {
         this.startDate = this.oldStartDate.setZone('local');
         this.endDate = this.oldEndDate.setZone('local');
         this.hide();
-        e.target!.dispatchEvent(new CustomEvent('cancel.daterangepicker', { bubbles: true, detail: this }));
+        this.element.dispatchEvent(new CustomEvent('cancel.daterangepicker', { bubbles: true, detail: this }));
     }
 
     private monthOrYearChanged(e: Event): void {
         const cal = (e.target as HTMLElement).closest('.drp-calendar')!;
         const isLeft = cal.classList.contains('left');
+        const monthEl = cal.querySelector('.monthselect') as HTMLSelectElement;
+        const yearEl = cal.querySelector('.yearselect') as HTMLSelectElement;
 
-        const month = parseInt((cal.querySelector('.monthselect') as HTMLSelectElement).value, 10) + 1; // +1 para Luxon (1-12)
-        const year = parseInt((cal.querySelector('.yearselect') as HTMLSelectElement).value, 10);
+        const month = parseInt(monthEl.value, 10) + 1; // +1 para Luxon (1-12)
+        const year = parseInt(yearEl.value, 10);
 
         let newDate = DateTime.local(year, month, 1);
-        // (Lógica de sanidad de fecha y actualización de calendarios omitida por brevedad)
+
+        if (isLeft) {
+            this.leftCalendar.month = newDate.set({ day: 2 });
+            if (this.linkedCalendars) {
+                this.rightCalendar.month = newDate.set({ day: 2 }).plus({ months: 1 });
+            }
+        } else {
+            this.rightCalendar.month = newDate.set({ day: 2 });
+            if (this.linkedCalendars) {
+                this.leftCalendar.month = newDate.set({ day: 2 }).minus({ months: 1 });
+            }
+        }
         this.updateCalendars();
     }
 
     private timeChanged(e: Event): void {
-        // (Lógica de actualización de hora usando setStartDate/setEndDate omitida por brevedad)
+        const cal = (e.target as HTMLElement).closest('.drp-calendar')!;
+        const isLeft = cal.classList.contains('left');
+        const timeSelectors = cal.querySelector('.calendar-time')!;
+
+        const hour = parseInt((timeSelectors.querySelector('.hourselect') as HTMLSelectElement).value, 10);
+        const minute = parseInt((timeSelectors.querySelector('.minuteselect') as HTMLSelectElement).value, 10);
+        const second = this.timePickerSeconds ? parseInt((timeSelectors.querySelector('.secondselect') as HTMLSelectElement).value, 10) : 0;
+        const ampm = this.timePicker24Hour ? '' : (timeSelectors.querySelector('.ampmselect') as HTMLSelectElement).value;
+
+        let h = hour;
+        if (!this.timePicker24Hour) {
+            if (ampm === 'AM' && hour === 12) h = 0;
+            if (ampm === 'PM' && hour !== 12) h = hour + 12;
+        }
+
+        if (isLeft) {
+            this.startDate = this.startDate.set({ hour: h, minute, second });
+            // Si es single date, también actualiza el fin
+            if (this.singleDatePicker) this.endDate = this.startDate;
+        } else {
+            this.endDate = this.endDate.set({ hour: h, minute, second });
+        }
+
         this.updateCalendars();
         this.updateFormInputs();
         this.renderTimePickers();
     }
 
     private elementChanged(): void {
-        // (Lógica de análisis de entrada de texto y actualización de fechas omitida por brevedad)
+        const val = (this.element as HTMLInputElement).value;
+        const dtFormat = this.locale.format + (this.timePicker ? ' ' + (this.timePicker24Hour ? 'HH:mm' : 'h:mm a') + (this.timePickerSeconds ? ':ss' : '') : '');
+
+        if (val.length < dtFormat.length) return; // Entrada incompleta
+
+        let start: DateTime | null = null;
+        let end: DateTime | null = null;
+
+        if (this.singleDatePicker) {
+            start = DateTime.fromFormat(val, dtFormat);
+            end = start;
+        } else if (val.includes(this.locale.separator)) {
+            const parts = val.split(this.locale.separator);
+            start = DateTime.fromFormat(parts[0], dtFormat);
+            end = DateTime.fromFormat(parts[1], dtFormat);
+        }
+
+        if (start && end && start.isValid && end.isValid) {
+            this.setStartDate(start.setZone('local'));
+            this.setEndDate(end.setZone('local'));
+        }
         this.updateView();
     }
 
@@ -570,7 +727,8 @@ export class DateRangePicker {
     private updateFormInputs(): void {
         const applyBtn = this.container.querySelector('button.applyBtn') as HTMLButtonElement;
 
-        if (this.singleDatePicker || (this.endDate && (this.startDate < this.endDate || this.startDate.hasSame(this.endDate, 'millisecond')))) {
+        // La condición de aplicación es si tenemos una fecha de fin, y si la fecha de inicio es <= la de fin.
+        if (this.endDate && (this.startDate < this.endDate || this.startDate.hasSame(this.endDate, 'millisecond'))) {
             applyBtn.disabled = false;
         } else {
             applyBtn.disabled = true;
@@ -580,9 +738,18 @@ export class DateRangePicker {
     private updateElement(): void {
         if (this.element.tagName === 'INPUT' && this.autoUpdateInput) {
             let newValue = this.startDate.toFormat(this.locale.format);
-            if (!this.singleDatePicker) {
-                newValue += this.locale.separator + this.endDate.toFormat(this.locale.format);
+            if (this.timePicker) {
+                newValue = this.startDate.toFormat(this.locale.format + ' ' + (this.timePicker24Hour ? 'HH:mm' : 'h:mm a') + (this.timePickerSeconds ? ':ss' : ''));
             }
+
+            if (!this.singleDatePicker) {
+                let endValue = this.endDate.toFormat(this.locale.format);
+                if (this.timePicker) {
+                    endValue = this.endDate.toFormat(this.locale.format + ' ' + (this.timePicker24Hour ? 'HH:mm' : 'h:mm a') + (this.timePickerSeconds ? ':ss' : ''));
+                }
+                newValue += this.locale.separator + endValue;
+            }
+
             if (newValue !== (this.element as HTMLInputElement).value) {
                 (this.element as HTMLInputElement).value = newValue;
                 this.element.dispatchEvent(new Event('change'));
@@ -591,10 +758,53 @@ export class DateRangePicker {
     }
 
     public updateRanges(newRanges: { [key: string]: [DateTime | string, DateTime | string] }): void {
-        // (Lógica de actualización de rangos omitida por brevedad)
+        this.ranges = {};
+        for (const label in newRanges) {
+            const range = newRanges[label];
+            const start = typeof range[0] === 'string' ? DateTime.fromFormat(range[0], this.locale.format) : range[0].setZone('local');
+            const end = typeof range[1] === 'string' ? DateTime.fromFormat(range[1], this.locale.format) : range[1].setZone('local');
+
+            // Asegurar que las fechas de rango se ajusten al tiempoPicker si está activo
+            this.ranges[label] = [
+                this.timePicker ? start : start.startOf('day'),
+                this.timePicker ? end : end.endOf('day')
+            ];
+        }
+
+        // Re-renderizar rangos en el DOM
+        this.renderRanges();
+    }
+
+    private renderRanges(): void {
+        const rangesEl = this.container.querySelector('.ranges') as HTMLElement;
+        let html = '<ul>';
+        let customRangeFound = false;
+
+        for (const label in this.ranges) {
+            html += `<li data-range-key="${label}">${label}</li>`;
+            if (label === this.locale.customRangeLabel) customRangeFound = true;
+        }
+
+        if (!customRangeFound && this.showCustomRangeLabel) {
+            html += `<li data-range-key="${this.locale.customRangeLabel}">${this.locale.customRangeLabel}</li>`;
+        }
+
+        html += '</ul>';
+        Utilities.html(rangesEl, html);
     }
 
     public remove(): void {
-        // (Lógica de limpieza de event listeners y elementos DOM omitida por brevedad)
+        // Limpiar event listeners
+        this.hide();
+        Utilities.off(this.element, 'click', this.showProxy!);
+        Utilities.off(this.element, 'focus', this.showProxy!);
+        Utilities.off(this.element, 'keyup', this.elementChangedProxy!);
+        Utilities.off(this.element, 'keydown', this.keydownProxy!);
+        Utilities.off(this.element, 'click', this.toggleProxy!);
+
+        // Remover contenedor del DOM
+        this.container.remove();
+
+        this.element.dispatchEvent(new CustomEvent('remove.daterangepicker', { bubbles: true, detail: this }));
     }
 }
