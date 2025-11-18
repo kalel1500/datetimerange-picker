@@ -1,6 +1,6 @@
 {
     "name": "@kalel1500/datetimerange-picker",
-    "version": "0.1.0-beta.5",
+    "version": "0.2.0-beta.0",
     "description": "A JavaScript component that is a date & time range picker",
     "type": "module",
     "main": "dist/datetimerange-picker.es.js",
