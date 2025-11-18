@@ -1,5 +1,3 @@
-// src/index.ts
-
 import { DateRangePicker } from './DateRangePicker';
 import { DateTime, Duration } from 'luxon';
 

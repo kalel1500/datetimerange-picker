@@ -1,5 +1,3 @@
-// src/Utilities.ts
-
 /**
  * Clase de utilidades estáticas para manipulación básica del DOM (reemplazo del objeto 'jq').
  */

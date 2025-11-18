@@ -1,5 +1,3 @@
-// src/CalendarRenderer.ts
-
 import { DateTime, Info, Duration } from 'luxon';
 import { Utilities } from './Utilities';
 import { Locale, CalendarData } from './types';
