@@ -113,10 +113,11 @@ export class DateRangePicker {
 
         // 3. Aplicar Opciones
         this.options = Object.assign(Object.assign({}, this.element.dataset), options);
-        this.applyOptions(this.options);
 
         // 4. Inicializar la UI
         this.container = this.createContainer(this.options.template);
+
+        this.applyOptions(this.options);
 
         // 5. Inicializar Renderizadores (pasan el estado actual)
         this.calendarRenderer = new CalendarRenderer(
