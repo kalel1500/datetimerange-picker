@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
+// @ts-ignore
 import path from 'path';
-import dts from 'vite-plugin-dts';
 
 type StrBoolean = 'true' | 'false';
 type Env = {
@@ -14,15 +14,10 @@ export default ({ mode }: { mode: string }) => {
     const sourcemap = env.VITE_SOURCEMAP === 'true';
 
     return defineConfig({
-        resolve: {
-            alias: {
-                '@': path.resolve(__dirname, './src'),
-            }
-        },
         build: {
             lib: {
                 entry: [
-                    path.resolve(__dirname, './src/index.ts'),
+                    path.resolve(__dirname, './src/index.js'),
                     path.resolve(__dirname, './src/styles/datetimerange-picker.css'),
                     path.resolve(__dirname, './src/styles/datetimerange-picker-dark.css'),
                 ],
@@ -40,11 +35,6 @@ export default ({ mode }: { mode: string }) => {
             cssCodeSplit: true,
             minify: minify,
             sourcemap: sourcemap,
-        },
-        plugins: [
-            dts({
-                outDir: 'dist/types', // Directorio donde se generarán los .d.ts
-            }),
-        ]
+        }
     });
 }
