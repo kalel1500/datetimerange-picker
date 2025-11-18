@@ -23,8 +23,8 @@ export default ({ mode }: { mode: string }) => {
             lib: {
                 entry: [
                     path.resolve(__dirname, './src/index.ts'),
-                    path.resolve(__dirname, './src/styles/styles.css'),
-                    path.resolve(__dirname, './src/styles/styles-dark.css'),
+                    path.resolve(__dirname, './src/styles/datetimerange-picker.css'),
+                    path.resolve(__dirname, './src/styles/datetimerange-picker-dark.css'),
                 ],
                 name: 'DatetimerangePicker',
                 formats: ['es'],
